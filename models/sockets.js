@@ -22,16 +22,14 @@ class Sockets {
     // On connection
     this.io.on("connection", (socket) => {
       socket.emit("me", socket.id);
-      console.log("Cliente conectado", socket.id);
       socket.on("client", async (dataClientId) => {
         try {
           let result = await this.collection.findOne({ _id: dataClientId });
           if (!result) {
             await this.collection.insertOne({ _id: dataClientId, data: [] });
           }
-          console.log(dataClientId);
           socket.join(dataClientId);
-          socket.emit("clientData", dataClientId);
+          socket.broadcast.to(dataClientId).emit("guess", socket.id);
           socket.activeRoom = dataClientId;
         } catch (error) {}
       });
@@ -51,6 +49,10 @@ class Sockets {
         this.io.to(socket.activeRoom).emit("dataResult", data);
       });
 
+      socket.on("callEnded", (callEnded) => {
+        socket.to(socket.activeRoom).emit("callEnded", callEnded);
+      });
+
       socket.on("callUser", ({ userToCall, signalData, from, name }) => {
         console.log("Calling", userToCall);
         this.io
@@ -59,8 +61,11 @@ class Sockets {
       });
 
       socket.on("answerCall", (data) => {
-        // console.log(data);
         this.io.to(data.to).emit("callAccepted", data.signal);
+      });
+
+      socket.on("videoId", (videoId) => {
+        socket.to(socket.activeRoom).emit("videoId", videoId);
       });
     });
   }
